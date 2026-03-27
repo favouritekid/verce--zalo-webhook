@@ -6,6 +6,11 @@ create table if not exists public.zalo_contacts (
   oa_id text,
   full_name text,
   phone text,
+  nganh text,
+  dob text,
+  address text,
+  avatar text,
+  is_follower boolean default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
