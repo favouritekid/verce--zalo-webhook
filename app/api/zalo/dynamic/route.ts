@@ -188,7 +188,7 @@ async function handleFindProgram(args: {
         type: 'text',
         text: `Mình chưa tìm thấy thông tin ngành "${nganh}". Bạn vui lòng thử chọn lại hoặc liên hệ tư vấn nhé.`,
         buttons: [
-          { name: 'Gọi tư vấn', type: 'phone', payload: '02623812345' },
+          { name: 'Gọi tư vấn', type: 'phone', payload: '0906513555' },
         ],
       },
     ])
@@ -205,24 +205,40 @@ async function handleFindProgram(args: {
     return NextResponse.json(responsePayload, { status: 200 })
   }
 
-  const lines = [
-    `Tên ngành: ${data.name}`,
-    `Mã ngành: ${data.code || 'Đang cập nhật'}`,
-    `Trình độ: ${data.level || 'Cao đẳng'}`,
-    `Thời gian đào tạo: ${data.duration || 'Đang cập nhật'}`,
-    `Phương thức xét tuyển: ${data.admission_methods || 'Đang cập nhật'}`,
-    `Học phí: ${data.tuition || 'Đang cập nhật'}`,
+  const messages: ChatbotMessage[] = [
+    {
+      type: 'text',
+      text: [
+        `--- THÔNG TIN NGÀNH ---`,
+        ``,
+        `Tên ngành: ${data.name}`,
+        `Mã ngành: ${data.code || 'Đang cập nhật'}`,
+        `Trình độ: ${data.level || 'Cao đẳng'}`,
+        `Thời gian đào tạo: ${data.duration || 'Đang cập nhật'}`,
+        `Phương thức xét tuyển: ${data.admission_methods || 'Đang cập nhật'}`,
+        `Học phí: ${data.tuition || 'Đang cập nhật'}`,
+      ].join('\n'),
+    },
   ]
 
-  const buttons: ChatbotButton[] = []
-  if (data.detail_url) {
-    buttons.push({ name: 'Xem chi tiết', type: 'url', url: data.detail_url })
+  if (data.job_positions || data.salary_range) {
+    messages.push({
+      type: 'text',
+      text: [
+        `--- CƠ HỘI VIỆC LÀM ---`,
+        ``,
+        `Vị trí việc làm:`,
+        ...(data.job_positions?.split(', ').map((p: string) => `• ${p}`) || ['Đang cập nhật']),
+        ``,
+        `Mức lương sau tốt nghiệp: ${data.salary_range || 'Đang cập nhật'}`,
+      ].join('\n'),
+      buttons: [
+        { name: 'Gọi tư vấn ngay', type: 'phone', payload: '0906513555' },
+      ],
+    })
   }
-  buttons.push({ name: 'Gọi tư vấn', type: 'phone', payload: '02623812345' })
 
-  const responsePayload = chatbotResponse([
-    { type: 'text', text: lines.join('\n'), buttons },
-  ])
+  const responsePayload = chatbotResponse(messages)
 
   await writeLog({
     action: 'find',
@@ -262,7 +278,7 @@ async function handleLookupAdmission(args: {
   } else {
     return textResponse(
       `Chào ${displayName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi mã hồ sơ hoặc số điện thoại nhé.`,
-      [{ name: 'Liên hệ tư vấn', type: 'phone', payload: '02623812345' }],
+      [{ name: 'Liên hệ tư vấn', type: 'phone', payload: '0906513555' }],
     )
   }
 
@@ -275,7 +291,7 @@ async function handleLookupAdmission(args: {
         text: `Mình chưa tìm thấy hồ sơ phù hợp. Bạn vui lòng kiểm tra lại mã hồ sơ hoặc số điện thoại nhé.`,
         buttons: [
           { name: 'Nhập lại mã hồ sơ', type: 'query', payload: 'Tra cứu hồ sơ' },
-          { name: 'Liên hệ tư vấn', type: 'phone', payload: '02623812345' },
+          { name: 'Liên hệ tư vấn', type: 'phone', payload: '0906513555' },
         ],
       },
     ])
@@ -305,7 +321,7 @@ async function handleLookupAdmission(args: {
         `• Cập nhật lúc: ${new Date(data.updated_at).toLocaleString('vi-VN')}`,
       ].join('\n'),
       buttons: [
-        { name: 'Gọi tư vấn', type: 'phone', payload: '02623812345' },
+        { name: 'Gọi tư vấn', type: 'phone', payload: '0906513555' },
       ],
     },
   ])
