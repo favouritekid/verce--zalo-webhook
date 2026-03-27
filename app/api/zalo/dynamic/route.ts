@@ -206,20 +206,13 @@ async function handleFindProgram(args: {
   }
 
   const lines = [
-    `📋 Thông tin ngành: ${data.name}`,
-    ``,
-    `• Mã ngành: ${data.code || 'Đang cập nhật'}`,
-    `• Trình độ: ${data.level || 'Cao đẳng'}`,
-    `• Thời gian đào tạo: ${data.duration || 'Đang cập nhật'}`,
-    `• Học phí: ${data.tuition || 'Đang cập nhật'}`,
+    `Tên ngành: ${data.name}`,
+    `Mã ngành: ${data.code || 'Đang cập nhật'}`,
+    `Trình độ: ${data.level || 'Cao đẳng'}`,
+    `Thời gian đào tạo: ${data.duration || 'Đang cập nhật'}`,
+    `Phương thức xét tuyển: ${data.admission_methods || 'Đang cập nhật'}`,
+    `Học phí: ${data.tuition || 'Đang cập nhật'}`,
   ]
-
-  if (data.admission_methods) {
-    lines.push(`• Phương thức xét tuyển: ${data.admission_methods}`)
-  }
-  if (data.description) {
-    lines.push(``, `${data.description}`)
-  }
 
   const buttons: ChatbotButton[] = []
   if (data.detail_url) {
