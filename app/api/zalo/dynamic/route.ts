@@ -113,26 +113,21 @@ async function writeLog(payload: {
   }
 }
 
-async function handleLookupAdmission(args: {
+async function saveContact(args: {
   userId: string | null
-  userName: string | null
+  displayName: string | null
   oaId: string | null
-  studentCode: string | null
   phone: string | null
   nganh: string | null
-  hoTen: string | null
   dob: string | null
   address: string | null
   avatar: string | null
   isFollower: string | null
-  rawRequest: Record<string, unknown>
-  startedAt: number
 }) {
-  const { userId, userName, oaId, studentCode, phone, nganh, hoTen, dob, address, avatar, isFollower, rawRequest, startedAt } = args
+  const { userId, displayName, oaId, phone, nganh, dob, address, avatar, isFollower } = args
+  if (!userId) return
 
-  const displayName = hoTen || userName
-
-  if (userId) {
+  try {
     await getSupabaseAdmin().from('zalo_contacts').upsert(
       {
         zalo_user_id: userId,
@@ -148,7 +143,117 @@ async function handleLookupAdmission(args: {
       },
       { onConflict: 'zalo_user_id' },
     )
+  } catch {
+    // Không chặn luồng chính
   }
+}
+
+// === ACTION: find — Tra cứu thông tin ngành nghề ===
+async function handleFindProgram(args: {
+  userId: string | null
+  displayName: string | null
+  oaId: string | null
+  phone: string | null
+  nganh: string | null
+  hoTen: string | null
+  dob: string | null
+  address: string | null
+  avatar: string | null
+  isFollower: string | null
+  rawRequest: Record<string, unknown>
+  startedAt: number
+}) {
+  const { userId, displayName, oaId, phone, nganh, rawRequest, startedAt } = args
+
+  // Lưu thông tin contact
+  await saveContact(args)
+
+  if (!nganh) {
+    return textResponse(
+      `Chào ${displayName || 'bạn'}, bạn chưa chọn ngành nghề. Vui lòng chọn một ngành để mình tra cứu thông tin nhé.`,
+    )
+  }
+
+  // Tìm ngành theo tên (ilike để không phân biệt hoa/thường)
+  const { data, error } = await getSupabaseAdmin()
+    .from('programs')
+    .select('*')
+    .ilike('name', `%${nganh}%`)
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) {
+    const responsePayload = chatbotResponse([
+      {
+        type: 'text',
+        text: `Mình chưa tìm thấy thông tin ngành "${nganh}". Bạn vui lòng thử chọn lại hoặc liên hệ tư vấn nhé.`,
+        buttons: [
+          { name: 'Gọi tư vấn', type: 'phone', payload: '02623812345' },
+        ],
+      },
+    ])
+
+    await writeLog({
+      action: 'find',
+      zalo_user_id: userId,
+      oa_id: oaId,
+      request_payload: rawRequest,
+      response_payload: responsePayload,
+      latency_ms: Date.now() - startedAt,
+    })
+
+    return NextResponse.json(responsePayload, { status: 200 })
+  }
+
+  const lines = [
+    `📋 Thông tin ngành: ${data.name}`,
+    ``,
+    `• Mã ngành: ${data.code || 'Đang cập nhật'}`,
+    `• Trình độ: ${data.level || 'Cao đẳng'}`,
+    `• Thời gian đào tạo: ${data.duration || 'Đang cập nhật'}`,
+    `• Học phí: ${data.tuition || 'Đang cập nhật'}`,
+  ]
+
+  if (data.admission_methods) {
+    lines.push(`• Phương thức xét tuyển: ${data.admission_methods}`)
+  }
+  if (data.description) {
+    lines.push(``, `${data.description}`)
+  }
+
+  const buttons: ChatbotButton[] = []
+  if (data.detail_url) {
+    buttons.push({ name: 'Xem chi tiết', type: 'url', url: data.detail_url })
+  }
+  buttons.push({ name: 'Gọi tư vấn', type: 'phone', payload: '02623812345' })
+
+  const responsePayload = chatbotResponse([
+    { type: 'text', text: lines.join('\n'), buttons },
+  ])
+
+  await writeLog({
+    action: 'find',
+    zalo_user_id: userId,
+    oa_id: oaId,
+    request_payload: rawRequest,
+    response_payload: responsePayload,
+    latency_ms: Date.now() - startedAt,
+  })
+
+  return NextResponse.json(responsePayload, { status: 200 })
+}
+
+// === ACTION: lookup_admission — Tra cứu hồ sơ tuyển sinh ===
+async function handleLookupAdmission(args: {
+  userId: string | null
+  displayName: string | null
+  oaId: string | null
+  studentCode: string | null
+  phone: string | null
+  rawRequest: Record<string, unknown>
+  startedAt: number
+}) {
+  const { userId, displayName, oaId, studentCode, phone, rawRequest, startedAt } = args
 
   let query = getSupabaseAdmin()
     .from('admission_records')
@@ -163,7 +268,7 @@ async function handleLookupAdmission(args: {
     query = query.eq('zalo_user_id', userId)
   } else {
     return textResponse(
-      `Chào ${displayName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi mã hồ sơ hoặc số điện thoại để mình kiểm tra nhé.`,
+      `Chào ${displayName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi mã hồ sơ hoặc số điện thoại nhé.`,
       [{ name: 'Liên hệ tư vấn', type: 'phone', payload: '02623812345' }],
     )
   }
@@ -176,16 +281,8 @@ async function handleLookupAdmission(args: {
         type: 'text',
         text: `Mình chưa tìm thấy hồ sơ phù hợp. Bạn vui lòng kiểm tra lại mã hồ sơ hoặc số điện thoại nhé.`,
         buttons: [
-          {
-            name: 'Nhập lại mã hồ sơ',
-            type: 'query',
-            payload: 'Tra cứu hồ sơ',
-          },
-          {
-            name: 'Liên hệ tư vấn',
-            type: 'phone',
-            payload: '02623812345',
-          },
+          { name: 'Nhập lại mã hồ sơ', type: 'query', payload: 'Tra cứu hồ sơ' },
+          { name: 'Liên hệ tư vấn', type: 'phone', payload: '02623812345' },
         ],
       },
     ])
@@ -215,16 +312,7 @@ async function handleLookupAdmission(args: {
         `• Cập nhật lúc: ${new Date(data.updated_at).toLocaleString('vi-VN')}`,
       ].join('\n'),
       buttons: [
-        {
-          name: 'Xem chi tiết',
-          type: 'url',
-          url: `https://your-domain.vn/tra-cuu?student_code=${encodeURIComponent(data.student_code)}`,
-        },
-        {
-          name: 'Gọi tư vấn',
-          type: 'phone',
-          payload: '02623812345',
-        },
+        { name: 'Gọi tư vấn', type: 'phone', payload: '02623812345' },
       ],
     },
   ])
@@ -241,6 +329,7 @@ async function handleLookupAdmission(args: {
   return NextResponse.json(responsePayload, { status: 200 })
 }
 
+// === MAIN HANDLER ===
 async function handleRequest(request: Request) {
   const startedAt = Date.now()
   const body = (await readBody(request)) as Record<string, unknown>
@@ -263,18 +352,15 @@ async function handleRequest(request: Request) {
   const userId = pickString(params.get('user_id'), body.user_id, body.zaloUserID)
   const userName = pickString(params.get('user_name'), body.user_name, body.zaloName)
   const oaId = pickString(params.get('oa_id'), body.oa_id)
+  const hoTen = pickString(params.get('hoTen'), body.hoTen)
+  const displayName = hoTen || userName
   const studentCode = pickString(
     params.get('student_code'),
-    params.get('ma_ho_so'),
     body.student_code,
-    body.ma_ho_so,
     body.content,
   )
-  const phone = normalizePhone(
-    pickString(params.get('phone'), body.phone),
-  )
+  const phone = normalizePhone(pickString(params.get('phone'), body.phone))
   const nganh = pickString(params.get('nganh'), body.nganh)
-  const hoTen = pickString(params.get('hoTen'), body.hoTen)
   const dob = pickString(body.dob)
   const address = pickString(body.address)
   const avatar = pickString(body.avartar)
@@ -290,32 +376,21 @@ async function handleRequest(request: Request) {
   try {
     switch (action) {
       case 'find':
+        return await handleFindProgram({
+          userId, displayName, oaId, phone, nganh, hoTen,
+          dob, address, avatar, isFollower,
+          rawRequest, startedAt,
+        })
       case 'lookup_admission':
         return await handleLookupAdmission({
-          userId,
-          userName,
-          oaId,
-          studentCode,
-          phone,
-          nganh,
-          hoTen,
-          dob,
-          address,
-          avatar,
-          isFollower,
-          rawRequest,
-          startedAt,
+          userId, displayName, oaId, studentCode, phone,
+          rawRequest, startedAt,
         })
       default:
-        return textResponse(`Action \"${action}\" chưa được hỗ trợ.`)
+        return textResponse(`Action "${action}" chưa được hỗ trợ.`)
     }
   } catch {
-    const responsePayload = chatbotResponse([
-      {
-        type: 'text',
-        text: FALLBACK_TEXT,
-      },
-    ])
+    const responsePayload = chatbotResponse([{ type: 'text', text: FALLBACK_TEXT }])
 
     await writeLog({
       action,

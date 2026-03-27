@@ -45,9 +45,25 @@ create table if not exists public.zalo_request_logs (
   created_at timestamptz not null default now()
 );
 
+-- Bảng thông tin ngành nghề
+create table if not exists public.programs (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  code text,
+  level text default 'Cao đẳng',
+  duration text,
+  tuition text,
+  admission_methods text,
+  description text,
+  detail_url text,
+  group_name text,
+  updated_at timestamptz not null default now()
+);
+
 alter table public.zalo_contacts enable row level security;
 alter table public.admission_records enable row level security;
 alter table public.zalo_request_logs enable row level security;
+alter table public.programs enable row level security;
 
 -- Nếu chỉ cho phép truy cập qua service_role ở server, có thể chặn toàn bộ truy cập trực tiếp.
 do $$ begin
@@ -70,6 +86,13 @@ do $$ begin
     where schemaname = 'public' and tablename = 'zalo_request_logs' and policyname = 'deny_all_zalo_request_logs'
   ) then
     create policy deny_all_zalo_request_logs on public.zalo_request_logs for all using (false) with check (false);
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'programs' and policyname = 'deny_all_programs'
+  ) then
+    create policy deny_all_programs on public.programs for all using (false) with check (false);
   end if;
 end $$;
 
