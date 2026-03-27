@@ -119,18 +119,31 @@ async function handleLookupAdmission(args: {
   oaId: string | null
   studentCode: string | null
   phone: string | null
+  nganh: string | null
+  hoTen: string | null
+  dob: string | null
+  address: string | null
+  avatar: string | null
+  isFollower: string | null
   rawRequest: Record<string, unknown>
   startedAt: number
 }) {
-  const { userId, userName, oaId, studentCode, phone, rawRequest, startedAt } = args
+  const { userId, userName, oaId, studentCode, phone, nganh, hoTen, dob, address, avatar, isFollower, rawRequest, startedAt } = args
+
+  const displayName = hoTen || userName
 
   if (userId) {
     await getSupabaseAdmin().from('zalo_contacts').upsert(
       {
         zalo_user_id: userId,
         oa_id: oaId,
-        full_name: userName,
+        full_name: displayName,
         phone,
+        nganh,
+        dob,
+        address,
+        avatar,
+        is_follower: isFollower === 'true' || isFollower === '1',
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'zalo_user_id' },
@@ -150,7 +163,7 @@ async function handleLookupAdmission(args: {
     query = query.eq('zalo_user_id', userId)
   } else {
     return textResponse(
-      `Chào ${userName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi mã hồ sơ hoặc số điện thoại để mình kiểm tra nhé.`,
+      `Chào ${displayName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi mã hồ sơ hoặc số điện thoại để mình kiểm tra nhé.`,
       [{ name: 'Liên hệ tư vấn', type: 'phone', payload: '02623812345' }],
     )
   }
@@ -247,18 +260,25 @@ async function handleRequest(request: Request) {
   }
 
   const action = pickString(params.get('action'), body.action) || 'lookup_admission'
-  const userId = pickString(params.get('user_id'), params.get('uid'), body.user_id, body.uid)
-  const userName = pickString(params.get('user_name'), params.get('name'), body.user_name, body.name)
+  const userId = pickString(params.get('user_id'), body.user_id, body.zaloUserID)
+  const userName = pickString(params.get('user_name'), body.user_name, body.zaloName)
   const oaId = pickString(params.get('oa_id'), body.oa_id)
   const studentCode = pickString(
     params.get('student_code'),
     params.get('ma_ho_so'),
     body.student_code,
     body.ma_ho_so,
+    body.content,
   )
   const phone = normalizePhone(
-    pickString(params.get('phone'), params.get('so_dien_thoai'), body.phone, body.so_dien_thoai),
+    pickString(params.get('phone'), body.phone),
   )
+  const nganh = pickString(params.get('nganh'), body.nganh)
+  const hoTen = pickString(params.get('hoTen'), body.hoTen)
+  const dob = pickString(body.dob)
+  const address = pickString(body.address)
+  const avatar = pickString(body.avartar)
+  const isFollower = pickString(body.isFollower)
 
   const rawRequest = {
     method: request.method,
@@ -269,6 +289,7 @@ async function handleRequest(request: Request) {
 
   try {
     switch (action) {
+      case 'find':
       case 'lookup_admission':
         return await handleLookupAdmission({
           userId,
@@ -276,6 +297,12 @@ async function handleRequest(request: Request) {
           oaId,
           studentCode,
           phone,
+          nganh,
+          hoTen,
+          dob,
+          address,
+          avatar,
+          isFollower,
           rawRequest,
           startedAt,
         })
