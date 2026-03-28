@@ -238,17 +238,6 @@ async function handleFindProgram(args: {
     })
   }
 
-  // Nếu chưa có SĐT, mời cung cấp để tư vấn tốt hơn
-  if (!phone) {
-    messages.push({
-      type: 'text',
-      text: `Bạn có thể cho mình số điện thoại để được tư vấn chi tiết hơn về ngành ${data.name} không?`,
-      buttons: [
-        { name: 'Gọi tư vấn ngay', type: 'phone', payload: '0906513555' },
-      ],
-    })
-  }
-
   const responsePayload = chatbotResponse(messages)
 
   await writeLog({
