@@ -241,10 +241,10 @@ async function handleFindProgram(args: {
       text: [
         `💼 CƠ HỘI VIỆC LÀM `,
         ``,
-        `Vị trí việc làm:`,
+        `1. Vị trí việc làm:`,
         ...(data.job_positions?.split(', ').map((p: string) => `• ${p}`) || ['Đang cập nhật']),
         ``,
-        `Mức lương sau tốt nghiệp: ${data.salary_range || 'Đang cập nhật'}`,
+        `2. Mức lương sau tốt nghiệp: ${data.salary_range || 'Đang cập nhật'}`,
       ].join('\n'),
       buttons: [
         { name: 'Gọi tư vấn ngay', type: 'phone', payload: '0906513555' },
