@@ -238,6 +238,17 @@ async function handleFindProgram(args: {
     })
   }
 
+  // Nếu chưa có SĐT, mời cung cấp để tư vấn tốt hơn
+  if (!phone) {
+    messages.push({
+      type: 'text',
+      text: `Bạn có thể cho mình số điện thoại để được tư vấn chi tiết hơn về ngành ${data.name} không?`,
+      buttons: [
+        { name: 'Gọi tư vấn ngay', type: 'phone', payload: '0906513555' },
+      ],
+    })
+  }
+
   const responsePayload = chatbotResponse(messages)
 
   await writeLog({
@@ -338,6 +349,62 @@ async function handleLookupAdmission(args: {
   return NextResponse.json(responsePayload, { status: 200 })
 }
 
+// === ACTION: update_phone — Lưu SĐT theo user_id ===
+async function handleUpdatePhone(args: {
+  userId: string | null
+  displayName: string | null
+  oaId: string | null
+  phone: string | null
+  rawRequest: Record<string, unknown>
+  startedAt: number
+}) {
+  const { userId, displayName, oaId, phone, rawRequest, startedAt } = args
+
+  if (!userId) {
+    return textResponse('Không xác định được tài khoản. Vui lòng thử lại.')
+  }
+
+  if (!phone) {
+    return textResponse('Bạn chưa cung cấp số điện thoại. Vui lòng nhập số điện thoại của bạn.')
+  }
+
+  try {
+    await getSupabaseAdmin().from('zalo_contacts').upsert(
+      {
+        zalo_user_id: userId,
+        oa_id: oaId,
+        full_name: displayName,
+        phone,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'zalo_user_id' },
+    )
+  } catch {
+    return textResponse('Có lỗi khi lưu thông tin. Vui lòng thử lại sau.')
+  }
+
+  const responsePayload = chatbotResponse([
+    {
+      type: 'text',
+      text: `Cảm ơn ${displayName || 'bạn'} đã cung cấp số điện thoại. Tư vấn viên sẽ liên hệ bạn sớm nhất có thể!`,
+      buttons: [
+        { name: 'Gọi tư vấn ngay', type: 'phone', payload: '0906513555' },
+      ],
+    },
+  ])
+
+  await writeLog({
+    action: 'update_phone',
+    zalo_user_id: userId,
+    oa_id: oaId,
+    request_payload: rawRequest,
+    response_payload: responsePayload,
+    latency_ms: Date.now() - startedAt,
+  })
+
+  return NextResponse.json(responsePayload, { status: 200 })
+}
+
 // === MAIN HANDLER ===
 async function handleRequest(request: Request) {
   const startedAt = Date.now()
@@ -388,6 +455,11 @@ async function handleRequest(request: Request) {
         return await handleFindProgram({
           userId, displayName, oaId, phone, nganh, hoTen,
           dob, address, avatar, isFollower,
+          rawRequest, startedAt,
+        })
+      case 'update_phone':
+        return await handleUpdatePhone({
+          userId, displayName, oaId, phone,
           rawRequest, startedAt,
         })
       case 'lookup_admission':
