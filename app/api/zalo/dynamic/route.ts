@@ -165,48 +165,29 @@ async function handleFindProgram(args: {
 }) {
   const { userId, displayName, oaId, phone, nganh, rawRequest, startedAt } = args
 
-  // Lưu thông tin contact
-  await saveContact(args)
-
   if (!nganh) {
+    saveContact(args) // fire-and-forget
     return textResponse(
       `Chào ${displayName || 'bạn'}, bạn chưa chọn ngành nghề. Vui lòng chọn một ngành để mình tra cứu thông tin nhé.`,
     )
   }
 
-  // Tìm ngành: exact match trước, rồi ilike, rồi tìm tất cả so sánh
+  // Chạy song song: lưu contact + tìm ngành
   const db = getSupabaseAdmin()
+  const [, { data: allPrograms }] = await Promise.all([
+    saveContact(args),
+    db.from('programs').select('*'),
+  ])
 
-  // Bước 1: exact match (nhanh nhất)
-  let { data } = await db
-    .from('programs')
-    .select('*')
-    .eq('name', nganh)
-    .limit(1)
-    .maybeSingle()
-
-  // Bước 2: ilike partial match
-  if (!data) {
-    const r2 = await db
-      .from('programs')
-      .select('*')
-      .ilike('name', `%${nganh}%`)
-      .limit(1)
-      .maybeSingle()
-    data = r2.data
-  }
-
-  // Bước 3: tìm ngược - tên ngành chứa trong chuỗi gửi lên
-  if (!data) {
-    const r3 = await db
-      .from('programs')
-      .select('*')
-    if (r3.data) {
-      const keyword = nganh.toLowerCase()
-      data = r3.data.find((p: { name: string }) =>
-        keyword.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(keyword)
-      ) || null
-    }
+  let data = null
+  if (allPrograms) {
+    const keyword = nganh.toLowerCase()
+    // Ưu tiên: exact match → partial match
+    data = allPrograms.find((p: { name: string }) => p.name.toLowerCase() === keyword)
+      || allPrograms.find((p: { name: string }) =>
+        p.name.toLowerCase().includes(keyword) || keyword.includes(p.name.toLowerCase())
+      )
+      || null
   }
 
   if (!data) {
@@ -267,7 +248,8 @@ async function handleFindProgram(args: {
 
   const responsePayload = chatbotResponse(messages)
 
-  await writeLog({
+  // Fire-and-forget log để không chặn response
+  writeLog({
     action: 'find',
     zalo_user_id: userId,
     oa_id: oaId,
