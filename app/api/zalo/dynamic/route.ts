@@ -64,8 +64,8 @@ function pickString(...values: unknown[]): string | null {
   for (const value of values) {
     if (typeof value === 'string') {
       const trimmed = value.trim()
-      // Bỏ qua biến Zalo chưa resolve ({{...}})
-      if (!trimmed || trimmed.startsWith('{{')) return null
+      // Bỏ qua giá trị rỗng hoặc biến Zalo chưa resolve ({{...}})
+      if (!trimmed || trimmed.startsWith('{{')) continue
       return trimmed
     }
     if (typeof value === 'number') return String(value)
