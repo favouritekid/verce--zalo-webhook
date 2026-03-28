@@ -174,15 +174,42 @@ async function handleFindProgram(args: {
     )
   }
 
-  // Tìm ngành theo tên (ilike để không phân biệt hoa/thường)
-  const { data, error } = await getSupabaseAdmin()
+  // Tìm ngành: exact match trước, rồi ilike, rồi tìm tất cả so sánh
+  const db = getSupabaseAdmin()
+
+  // Bước 1: exact match (nhanh nhất)
+  let { data } = await db
     .from('programs')
     .select('*')
-    .ilike('name', `%${nganh}%`)
+    .eq('name', nganh)
     .limit(1)
     .maybeSingle()
 
-  if (error || !data) {
+  // Bước 2: ilike partial match
+  if (!data) {
+    const r2 = await db
+      .from('programs')
+      .select('*')
+      .ilike('name', `%${nganh}%`)
+      .limit(1)
+      .maybeSingle()
+    data = r2.data
+  }
+
+  // Bước 3: tìm ngược - tên ngành chứa trong chuỗi gửi lên
+  if (!data) {
+    const r3 = await db
+      .from('programs')
+      .select('*')
+    if (r3.data) {
+      const keyword = nganh.toLowerCase()
+      data = r3.data.find((p: { name: string }) =>
+        keyword.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(keyword)
+      ) || null
+    }
+  }
+
+  if (!data) {
     const responsePayload = chatbotResponse([
       {
         type: 'text',
