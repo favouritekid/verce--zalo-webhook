@@ -62,7 +62,12 @@ function textResponse(text: string, buttons?: ChatbotButton[]) {
 
 function pickString(...values: unknown[]): string | null {
   for (const value of values) {
-    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      // Bỏ qua biến Zalo chưa resolve ({{...}})
+      if (!trimmed || trimmed.startsWith('{{')) return null
+      return trimmed
+    }
     if (typeof value === 'number') return String(value)
   }
   return null
@@ -71,9 +76,10 @@ function pickString(...values: unknown[]): string | null {
 function normalizePhone(input: string | null): string | null {
   if (!input) return null
   const digits = input.replace(/\D/g, '')
-  if (!digits) return null
+  // SĐT Việt Nam hợp lệ phải >= 9 số
+  if (!digits || digits.length < 9) return null
 
-  if (digits.startsWith('84')) return `0${digits.slice(2)}`
+  if (digits.startsWith('84') && digits.length >= 11) return `0${digits.slice(2)}`
   if (digits.startsWith('0')) return digits
   return digits
 }
