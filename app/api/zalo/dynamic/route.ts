@@ -16,27 +16,27 @@ type ChatbotButton = {
 
 type ChatbotMessage =
   | {
-      type: 'text'
-      text: string
-      buttons?: ChatbotButton[]
-    }
+    type: 'text'
+    text: string
+    buttons?: ChatbotButton[]
+  }
   | {
-      type: 'image'
-      image_url: string
-      caption?: string
-    }
+    type: 'image'
+    image_url: string
+    caption?: string
+  }
   | {
-      type: 'list'
-      elements: Array<{
-        title: string
-        subtitle?: string
-        image_url?: string
-        action?: {
-          type: 'url'
-          url: string
-        }
-      }>
-    }
+    type: 'list'
+    elements: Array<{
+      title: string
+      subtitle?: string
+      image_url?: string
+      action?: {
+        type: 'url'
+        url: string
+      }
+    }>
+  }
 
 type ChatbotResponse = {
   version: 'chatbot'
@@ -223,7 +223,7 @@ async function handleFindProgram(args: {
     {
       type: 'text',
       text: [
-        `--- THÔNG TIN NGÀNH ---`,
+        `ℹ️ THÔNG TIN NGÀNH`,
         ``,
         `Tên ngành: ${data.name}`,
         `Mã ngành: ${data.code || 'Đang cập nhật'}`,
@@ -239,7 +239,7 @@ async function handleFindProgram(args: {
     messages.push({
       type: 'text',
       text: [
-        `--- CƠ HỘI VIỆC LÀM ---`,
+        `💼 CƠ HỘI VIỆC LÀM `,
         ``,
         `Vị trí việc làm:`,
         ...(data.job_positions?.split(', ').map((p: string) => `• ${p}`) || ['Đang cập nhật']),
@@ -292,7 +292,7 @@ async function handleLookupAdmission(args: {
     query = query.eq('zalo_user_id', userId)
   } else {
     return textResponse(
-      `Chào ${displayName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi mã hồ sơ hoặc số điện thoại nhé.`,
+      `Chào ${displayName || 'bạn'}, mình chưa có dữ liệu để tra cứu. Bạn hãy gửi lại ngành học mà mình quan tâm hoặc số điện thoại nhé.`,
       [{ name: 'Liên hệ tư vấn', type: 'phone', payload: '0906513555' }],
     )
   }
